@@ -1,6 +1,6 @@
 # Talk
 
-Transmit sensitive data safely
+Transfer sensitive data safely
 
 ## Background
 How to transmit sensitive data safely via the Internet? Emails? Well, that's a bad idea. Your password for your email could be hacked and you never know whether your email service provider would take a look at your emails.
@@ -14,13 +14,13 @@ The passphrase can be the answer to one question that both you and the receiver 
 Of course, just like [Password-Manager](https://github.com/zeruniverse/Password-Manager), data will be encrypted and decrypted at client-side to make sure the service provider won't have access to the data.
 
 ## Demo
-Here is the project example: [talk.zzeyu.com](http://talk.zzeyu.com)
+Here is the project example: [talk.zzeyu.com](https://talk.zzeyu.com)
 
 ## Installation
 
 You need at least PHP 7.1, MySQL support and HTTPS support on your server.
 
-1. Copy everything in `src` folder to your server
+1. Copy everything in `src` folder to your server and import `initial.sql` to your database
 
 2. Edit `js/crypto.js`, change `CLIENT_SALT` to a new random string.
 
