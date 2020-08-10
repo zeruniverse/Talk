@@ -2,20 +2,25 @@
 $VERSION="3.0";
 
 //Your database host, e.g. localhost
-$DB_HOST='';
+$DB_HOST='localhost';
 
-//The database name for Talk
+//The database name for Talk.
 $DB_NAME='';
 
-//Database Username
+//Database Username.
+
 $DB_USER='';
 
 //Database Password
-$DB_PASSWORD='';
+
+$DB_PASSWORD='YOUR PASSWORD';
 
 //Your domain
-$DOMAIN_NAME=''; //e.g. 'http://talk.zzeyu.com/'
+$DOMAIN_NAME=''; // e.g. 'https://talk.zzeyu.com/', do not forget trailing slash
 
+// Use a new random string below
 $SERVER_SALT='ncew8d7*(e8fyh2inc osd2)wefcsBIUsdfq2as;dqw[;[]]';
+
+// If your server runs slowly, reduce following number.
 $PBKDF2_ITERS=50003;
 ?>

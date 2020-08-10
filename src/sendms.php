@@ -22,7 +22,7 @@ if(!isset($_POST['m'])||$_POST['m']==''||!isset($_POST['p'])||$_POST['p']==''||!
         $num=$num[0];
 		if($num==0) break;
 	}
-	$sql="INSERT INTO `talkrecord` VALUES (?,?,?,?,?,?,?);";
+	$sql="INSERT INTO `talkrecord` VALUES (?,?,?,?,?,?);";
     $res=sqlexec($sql,array($code,$m,$expire,$p,$phint,$typem),$link);
 	die($code);
 }

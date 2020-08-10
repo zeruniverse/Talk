@@ -2,6 +2,7 @@
     Use Web proto API
 */
 
+// Change following string to a new random one.
 const CLIENT_SALT = 'iunin19dnu9ismcj9IUNuia,cne9e389]{}{}[]*@key';
 const CLIENT_ITER = 1000031;
 

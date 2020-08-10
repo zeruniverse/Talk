@@ -11,7 +11,7 @@ echoheader();
 </div>
 <p><strong>
     <span class="bgyellow" id="link"><?php echo $DOMAIN_NAME.$_GET['code'];?></span>
-</strong> (<a id="cplink">Copy to clipboard</a>)</p>
+</strong> &nbsp; &nbsp; <button class="btn btn-xs btn-info" id="cplink">Copy to clipboard</button> </p>
 <p>This Link will expire in 5 days.</p>
 <p><a class="btn btn-md btn-success" href="index.php#sendmes">Send another message</a></p>
 </div>

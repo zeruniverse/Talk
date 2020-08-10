@@ -18,15 +18,15 @@ echoheader();
 	$sql="SELECT `hint`, `type` FROM `talkrecord`  WHERE `code`=?";
 	$res=sqlexec($sql,array($code),$link);
     $result= $res->fetch(PDO::FETCH_ASSOC);
-	if($result==false)  echo '<p>ERROR:Your message doesn\'t exists! Maybe it has been viewed (and it is one-time-access message) or expired.</p><br />';
+	if($result==false)  echo '<p>ERROR:Your message doesn\'t exists! Maybe it has been viewed (and it is one-time-access message) or expired.</p><br /><br /><a class="btn btn-md btn-success" href="index.php#sendmes">Send my message</a>';
 	else{
-        echo '<form>Please input your Passphrase:<input type="text" id="pcc" /></form> <button id="bu" class="btn btn-md btn-danger" postcode="'.$code.'">Confirm</button><br /><br />';
+        echo '<form>Please input your Passphrase: <input type="text" id="pcc" /></form> <button id="bu" class="btn btn-md btn-danger" postcode="'.$code.'">Confirm</button><br /><br />';
         if($result['hint']!='')
         {
             echo '<span class="colorred">Passphrase Hint: '.$result['hint'].'</span><br /><br />';
         }
         echo 'You should get the passphrase (key) from the sender.<br />';
-        if($result['type'] == 0) echo '<br /><span class="colorred">Please Notice: this message can be displayed only ONCE, the message will be deleted from the server once you see it.</span>';
+        if($result['type'] == 0) echo '<br /><span class="colorred">Please Note: this message can be displayed only ONCE. The message will be deleted from the server once you see it (so you might want to take notes).</span>';
     }
 ?>
 

@@ -1,11 +1,12 @@
 <?php
 require_once("function/basic.php");
+require_once("function/config.php");
 echoheader();
 ?>
 <script type="text/javascript" src="js/index.js"></script>
 <div class="container theme-showcase">
 <div class="page-header">
-        <h1>Talk</h1>
+        <h1>Talk v<?php echo $VERSION; ?></h1>
 </div>
 	<div class="jumbotron">
 		<p>This is a project for safe communications under monitored environment. All you need is a passphrase (key) known by both you and your recipient (i.e. anything both of you knows but others don't know).</p>
@@ -15,9 +16,9 @@ echoheader();
         <h1>Start Your Secure Communication</h1>
 </div>
 <form>
-Message to Send:<br /> <textarea id="m" name="m" style=""></textarea><br /><br />
+Message to Send:<br /> <textarea id="m" name="m"></textarea><br /><br />
 Passphrase: <input type="text" id='p' /><br /><br />
-Passphrase Hint (Alternative): <input type="text" id='phint' /><br />
+Passphrase Hint (Optional): <input type="text" id='phint' /><br />
 (Give some hint about the passphrase to the receiver. It will be stored and displayed in plaintext form)
 <br /><br />
 </form>

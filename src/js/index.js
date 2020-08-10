@@ -30,13 +30,14 @@ async function send_msg(typem)
     if(msg.length>5 && msg.length<11) window.location.href="./send.php?code="+msg; else
     {
         alert('Oops, error happens! Please retry!');
-        $('.bu').html('Generate Message Link');
+        $("#bu").html('Generate one-time-access Message Link');
+        $("#bu1").html('Generate unlimited-access Message Link');
         $('.bu').removeAttr('disabled');
     }
     });
 }
 
 $(function(){
-    $("#bu").on('click', send_msg(0));
-    $("#bu1").on('click', send_msg(1));
+    $("#bu").on('click', function() {send_msg(0)});
+    $("#bu1").on('click', function() {send_msg(1)});
 });

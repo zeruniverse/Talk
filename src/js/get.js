@@ -52,12 +52,12 @@ async function get_msg(code)
             var kc= await AESCBC256Decrypt(msg, key);
             kc='<span class="colorred">Your message is:</span><br /><br /><br />' +
                '<pre id="maincontent">' + kc + '</pre><br /><br />' +
-               '<a class="btn btn-md btn-success" href="index.php#sendmes">Send my message</a></p>';
+               '<a class="btn btn-md btn-success" href="index.php#sendmes">Send my message</a>';
             $('#showarea').html(kc);
         }
         });
 }
 
 $(function(){
-    $("#bu").on('click', get_msg($("#bu").attr("postcode")));
+    $("#bu").on('click', function() {get_msg($("#bu").attr("postcode"))});
 });
