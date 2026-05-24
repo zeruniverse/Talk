@@ -63,7 +63,7 @@ For each message:
 
 7. The whole assembled block is AES-GCM encrypted again and uploaded as `ciphertext`.
 
-When opening a message, the frontend first verifies the key with `check.php`. If the check passes, it uses XHR `POST` to fetch the complete encrypted blob from `open.php`. The backend deletes the server-side copy during this successful open operation. The browser then decrypts the outer block, decrypts the JSON block, displays `message` as raw HTML, and creates download links for each attachment. Attachment files are decrypted only when the user clicks a download link.
+When opening a message, the frontend first verifies the key with `check.php`. If the check passes, it uses XHR `POST` to fetch the complete encrypted blob from `open.php`. By default, the backend deletes the server-side copy during this successful open operation. If `Allow multiple views` was selected during creation, the server-side copy is kept until expiration. The browser then decrypts the outer block, decrypts the JSON block, displays `message` as raw HTML, and creates download links for each attachment. Attachment files are decrypted only when the user clicks a download link.
 
 ## Limits
 
@@ -97,6 +97,7 @@ Before deployment, edit `frontend/assets/config.js`:
 window.TALK_CONFIG = {
   API_BASE: 'https://api.example.com/api',
   FRONTEND_BASE: 'https://talk.example.com',
+  DEFAULT_PASSWORD: 'change-this-default-passphrase',
   PBKDF2_ITERATIONS: 210000,
   MAX_FILE_SUM_BYTES: 15 * 1024 * 1024,
   MAX_UPLOAD_BYTES: 16 * 1024 * 1024 - 1
@@ -184,7 +185,7 @@ POST /api/open.php        JSON: {"code":"...","token":"..."}; returns applicatio
 
 ## Notes
 
-- The passphrase is never sent to the backend.
+- The passphrase is never sent to the backend. Leaving the passphrase field blank uses `DEFAULT_PASSWORD` from `frontend/assets/config.js`.
 - The backend cannot decrypt messages or attachments.
-- Messages are one-time read. A successful `open.php` call deletes the stored blob.
+- Messages are one-time read by default. If `Allow multiple views` is selected, a successful `open.php` call keeps the stored blob until expiration.
 - Message output is intentionally rendered as raw HTML because this project explicitly preserves HTML tags in messages. Only share links with people you trust.

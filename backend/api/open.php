@@ -12,7 +12,7 @@ if (!talk_validate_code($code) || $token === '') {
 $pdo = talk_db();
 try {
     $pdo->beginTransaction();
-    $stmt = $pdo->prepare('SELECT ciphertext, ciphertext_bytes, access_token_hmac FROM talk_messages WHERE code = ? AND expire_at > UTC_TIMESTAMP() FOR UPDATE');
+    $stmt = $pdo->prepare('SELECT ciphertext, ciphertext_bytes, access_token_hmac, multi_view FROM talk_messages WHERE code = ? AND expire_at > UTC_TIMESTAMP() FOR UPDATE');
     $stmt->execute([$code]);
     $row = $stmt->fetch();
     if (!$row) {
@@ -26,8 +26,13 @@ try {
 
     $ciphertext = $row['ciphertext'];
     $bytes = (int)$row['ciphertext_bytes'];
-    $delete = $pdo->prepare('DELETE FROM talk_messages WHERE code = ?');
-    $delete->execute([$code]);
+    if ((int)$row['multi_view'] === 1) {
+        $update = $pdo->prepare('UPDATE talk_messages SET opened_at = UTC_TIMESTAMP() WHERE code = ?');
+        $update->execute([$code]);
+    } else {
+        $delete = $pdo->prepare('DELETE FROM talk_messages WHERE code = ?');
+        $delete->execute([$code]);
+    }
     $pdo->commit();
 
     http_response_code(200);

@@ -83,8 +83,7 @@ function talk_db() {
         $pdo = new PDO($dsn, $DB_USER, $DB_PASSWORD, [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-            PDO::ATTR_EMULATE_PREPARES => false,
-            PDO::MYSQL_ATTR_MAX_BUFFER_SIZE => 19 * 1024 * 1024
+            PDO::ATTR_EMULATE_PREPARES => false
         ]);
         return $pdo;
     } catch (Throwable $e) {

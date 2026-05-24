@@ -7,8 +7,11 @@ window.TALK_CONFIG = {
   // Example: https://talk.example.com
   FRONTEND_BASE: 'https://talk.example.com',
 
+  // Used when the create/open passphrase field is left blank.
+  DEFAULT_PASSWORD: 'change-this-default-passphrase',
+
   // Must match the backend value used for new messages.
-  PBKDF2_ITERATIONS: 21000,
+  PBKDF2_ITERATIONS: 210000,
 
   // 15 MiB original total file size limit.
   MAX_FILE_SUM_BYTES: 15 * 1024 * 1024,

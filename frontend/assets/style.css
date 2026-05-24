@@ -105,6 +105,17 @@ select {
   font: inherit;
 }
 
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 650;
+}
+
+.checkbox-row input {
+  width: auto;
+}
+
 textarea {
   min-height: 160px;
   resize: vertical;

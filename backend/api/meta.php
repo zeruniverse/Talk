@@ -10,7 +10,7 @@ if (!talk_validate_code($code)) {
 }
 
 $pdo = talk_db();
-$stmt = $pdo->prepare('SELECT code, salt, hint, kdf, pbkdf2_iterations, ciphertext_bytes, created_at, expire_at FROM talk_messages WHERE code = ? AND expire_at > UTC_TIMESTAMP()');
+$stmt = $pdo->prepare('SELECT code, salt, hint, kdf, pbkdf2_iterations, ciphertext_bytes, created_at, expire_at, multi_view FROM talk_messages WHERE code = ? AND expire_at > UTC_TIMESTAMP()');
 $stmt->execute([$code]);
 $row = $stmt->fetch();
 if (!$row) {
@@ -27,4 +27,5 @@ talk_json([
     'ciphertext_bytes' => (int)$row['ciphertext_bytes'],
     'created_at' => $row['created_at'],
     'expires_at' => $row['expire_at'],
+    'multi_view' => (bool)$row['multi_view'],
 ]);

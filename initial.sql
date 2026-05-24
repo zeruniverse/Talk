@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS `talk_messages` (
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `expire_at` datetime NOT NULL,
   `opened_at` datetime DEFAULT NULL,
+  `multi_view` tinyint(1) NOT NULL DEFAULT 0,
   PRIMARY KEY (`code`),
   KEY `idx_expire_at` (`expire_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

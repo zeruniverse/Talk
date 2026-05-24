@@ -34,6 +34,10 @@
     return base + '/' + encodeURIComponent(code);
   }
 
+  function effectivePassphrase(value) {
+    return value === '' ? String(config.DEFAULT_PASSWORD || '') : value;
+  }
+
   function getCodeFromLocation() {
     const params = new URLSearchParams(window.location.search);
     const queryCode = params.get('code');
@@ -114,20 +118,12 @@
     show($('created-panel'), false);
 
     const message = $('message').value;
-    const passphrase = $('create-passphrase').value;
-    const passphrase2 = $('create-passphrase-confirm').value;
+    const passphrase = effectivePassphrase($('create-passphrase').value);
     const hint = $('hint').value;
     const expiresDays = $('expires-days').value;
+    const multiView = $('multi-view').checked;
     const files = Array.from($('files').files || []);
 
-    if (!passphrase) {
-      setStatus('create-status', 'Passphrase is required.', 'error');
-      return;
-    }
-    if (passphrase !== passphrase2) {
-      setStatus('create-status', 'Passphrases do not match.', 'error');
-      return;
-    }
     if (!message && files.length === 0) {
       setStatus('create-status', 'Enter a message or attach at least one file.', 'error');
       return;
@@ -151,6 +147,7 @@
       form.append('expires_days', expiresDays);
       form.append('iterations', String(iterations));
       form.append('kdf', 'PBKDF2-SHA256');
+      form.append('multi_view', multiView ? '1' : '0');
       form.append('ciphertext', new Blob([built.outer], { type: 'application/octet-stream' }), 'payload.bin');
 
       const data = await fetchJson(apiUrl('create.php'), {
@@ -160,7 +157,7 @@
       const link = frontendUrl(data.code);
       $('created-link').textContent = link;
       $('created-link').href = link;
-      $('created-detail').textContent = `Encrypted size: ${data.ciphertext_bytes} bytes. Files: ${built.fileCount}.`;
+      $('created-detail').textContent = `Encrypted size: ${data.ciphertext_bytes} bytes. Files: ${built.fileCount}. Multiple views: ${multiView ? 'yes' : 'no'}.`;
       show($('created-panel'), true);
       setStatus('create-status', 'Created successfully.', 'success');
     } catch (error) {
@@ -194,11 +191,7 @@
       setStatus('open-status', 'Load the message metadata first.', 'error');
       return;
     }
-    const passphrase = $('open-passphrase').value;
-    if (!passphrase) {
-      setStatus('open-status', 'Enter the passphrase.', 'error');
-      return;
-    }
+    const passphrase = effectivePassphrase($('open-passphrase').value);
 
     try {
       setStatus('open-status', 'Checking passphrase...', 'info');
@@ -219,7 +212,8 @@
       $('message-output').innerHTML = payload.message;
       renderAttachments(payload.attachments);
       show($('result-panel'), true);
-      setStatus('open-status', 'Opened successfully. The server-side copy has been deleted.', 'success');
+      const openedStatus = state.meta.multi_view ? 'Opened successfully. This message can be viewed again until it expires.' : 'Opened successfully. The server-side copy has been deleted.';
+      setStatus('open-status', openedStatus, 'success');
     } catch (error) {
       setStatus('open-status', error.message || String(error), 'error');
     }
