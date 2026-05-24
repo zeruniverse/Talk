@@ -3,87 +3,103 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Talk - client-side encrypted sensitive message sharing">
   <title>Talk</title>
+  <meta name="description" content="Transfer sensitive messages and files safely with browser-side encryption.">
   <link rel="icon" href="/favicon.ico">
   <link rel="stylesheet" href="/assets/style.css">
+  <script src="/assets/config.js" defer></script>
+  <script src="/assets/crypto.js" defer></script>
+  <script src="/assets/app.js" defer></script>
 </head>
 <body>
+  <header>
+    <h1>Talk</h1>
+    <p>Transfer sensitive messages and attachments safely. Encryption and decryption happen in your browser.</p>
+  </header>
+
   <main>
-    <section class="hero">
-      <div class="brand">
-        <img src="/assets/logo.png" alt="Talk logo">
-        <div>
-          <h1>Talk</h1>
-          <p class="muted">Share sensitive data with browser-side encryption.</p>
+    <section class="card" id="create-card">
+      <h2>Create a message</h2>
+      <p>Your message and files are encrypted locally, packed into one encrypted blob, and then uploaded.</p>
+      <form id="create-form">
+        <label for="message">Message</label>
+        <textarea id="message" autocomplete="off" placeholder="Write your message here. HTML tags are preserved for the recipient."></textarea>
+
+        <label for="files">Attachments</label>
+        <input id="files" type="file" multiple>
+        <small>Total original file size must be 15 MiB or less. The final encrypted blob must fit 16 MiB.</small>
+
+        <div class="grid">
+          <div>
+            <label for="create-passphrase">Passphrase</label>
+            <input id="create-passphrase" type="password" autocomplete="new-password" required>
+          </div>
+          <div>
+            <label for="create-passphrase-confirm">Confirm passphrase</label>
+            <input id="create-passphrase-confirm" type="password" autocomplete="new-password" required>
+          </div>
         </div>
+
+        <label for="hint">Passphrase hint</label>
+        <input id="hint" type="text" maxlength="255" placeholder="Shown to the recipient before decryption">
+
+        <label for="expires-days">Expires after</label>
+        <select id="expires-days">
+          <option value="1">1 day</option>
+          <option value="3">3 days</option>
+          <option value="6" selected>6 days</option>
+          <option value="14">14 days</option>
+          <option value="30">30 days</option>
+        </select>
+
+        <button type="submit">Encrypt and upload</button>
+        <div id="create-status" class="status" role="status"></div>
+      </form>
+
+      <div id="created-panel" hidden>
+        <h3>Your link</h3>
+        <p class="link-box"><a id="created-link" href="#"></a></p>
+        <p id="created-detail" class="muted"></p>
+        <button id="copy-link" class="secondary" type="button">Copy link</button>
       </div>
-      <p>Your message is encrypted and decrypted locally in the browser with AES-GCM. The backend stores only ciphertext and a server-HMACed access token.</p>
     </section>
 
-    <section class="card grid" id="create-panel" data-panel hidden>
-      <h2>Start a secure message</h2>
-      <label>
-        Message to send
-        <textarea id="message" autocomplete="off" spellcheck="false"></textarea>
-      </label>
-      <label>
-        Passphrase
-        <input id="passphrase" type="password" autocomplete="new-password">
-        <small>Share this passphrase through a separate channel.</small>
-      </label>
-      <label>
-        Passphrase hint, optional
-        <input id="hint" type="text" maxlength="255" autocomplete="off">
-        <small>The hint is stored and displayed in plaintext.</small>
-      </label>
-      <label>
-        Expire after days
-        <input id="expire-days" type="number" min="1" max="30" value="5">
-      </label>
-      <div class="actions">
-        <button id="create-once" type="button">Generate one-time link</button>
-        <button id="create-unlimited" class="secondary" type="button">Generate reusable link</button>
-      </div>
-      <div class="status" id="create-status" aria-live="polite"></div>
-      <div class="result" id="result-box" hidden>
-        <strong>Your link</strong>
-        <div class="link-row">
-          <input id="generated-link" readonly>
-          <button id="copy-link" type="button">Copy</button>
-        </div>
-        <p class="muted">Code: <span id="generated-code"></span> · Expires in <span id="generated-expiry"></span></p>
-      </div>
-    </section>
+    <section class="card" id="open-card">
+      <h2>Open a message</h2>
+      <form id="load-meta-form">
+        <label for="open-code">Message code</label>
+        <input id="open-code" type="text" autocomplete="off" placeholder="Paste a code or open a Talk link">
+        <button type="submit">Load hint</button>
+      </form>
 
-    <section class="card grid" id="open-panel" data-panel hidden>
-      <h2>Open message</h2>
-      <p class="muted">Code: <span id="open-code"></span></p>
-      <p><strong>Type:</strong> <span id="open-type"></span></p>
-      <p><strong>Expires at:</strong> <span id="open-expiry"></span> UTC</p>
-      <p><strong>Passphrase hint:</strong> <span id="open-hint"></span></p>
-      <div id="open-form" class="grid">
-        <label>
-          Passphrase
+      <div id="meta-panel" hidden>
+        <h3>Hint</h3>
+        <p id="hint-text" class="link-box"></p>
+        <p class="muted">Expires at: <span id="expires-text"></span></p>
+      </div>
+
+      <form id="decrypt-form">
+        <div id="decrypt-panel" hidden>
+          <label for="open-passphrase">Passphrase</label>
           <input id="open-passphrase" type="password" autocomplete="current-password">
-        </label>
-        <div class="actions">
-          <button id="open-button" type="button">Decrypt message</button>
-          <button id="new-message" class="secondary" type="button">Send a new message</button>
+          <button type="submit">Check key and open once</button>
         </div>
-      </div>
-      <div class="status" id="open-status" aria-live="polite"></div>
-      <div id="message-output-box" hidden>
-        <h2>Your message</h2>
-        <pre id="message-output"></pre>
+      </form>
+      <div id="open-status" class="status" role="status"></div>
+
+      <div id="result-panel" hidden>
+        <h3>Message</h3>
+        <div id="message-output" class="raw-output"></div>
+        <div id="attachments-panel" class="attachments" hidden>
+          <h3>Attachments</h3>
+          <ul id="attachments-list"></ul>
+        </div>
       </div>
     </section>
   </main>
 
-  <footer>Original Talk project by Jeffery Zhao. All cryptographic operations for message content run in your browser.</footer>
-
-  <script src="/assets/config.js"></script>
-  <script src="/assets/crypto.js"></script>
-  <script src="/assets/app.js"></script>
+  <footer>
+    No external JavaScript is loaded. Keep your passphrase separate from the generated link.
+  </footer>
 </body>
 </html>

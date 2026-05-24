@@ -1,67 +1,47 @@
 <?php
 
-/*
- * Talk backend configuration.
- *
- * Values are read from environment variables first. If you do not use env vars,
- * you can edit the fallback values in this file directly.
- *
- * start.sh injects environment variables into PHP through Nginx FastCGI params.
- * To avoid Nginx template issues with special characters in passwords, start.sh
- * passes NAME_B64 values. This file also accepts normal NAME values.
- */
+//****************************************
+// PLEASE SPECIFY THE VARIABLES BELOW
+//****************************************
 
-function talk_env(string $name, string $default = ''): string
-{
-    $encoded = getenv($name . '_B64');
-    if ($encoded !== false && $encoded !== '') {
-        $decoded = base64_decode($encoded, true);
+function talk_config_value($name, $default = '') {
+    $value = getenv($name);
+    if ($value !== false && $value !== '') {
+        return $value;
+    }
+    if (isset($_SERVER[$name]) && $_SERVER[$name] !== '') {
+        return $_SERVER[$name];
+    }
+
+    $b64_name = $name . '_B64';
+    $b64_value = getenv($b64_name);
+    if ($b64_value === false || $b64_value === '') {
+        $b64_value = isset($_SERVER[$b64_name]) ? $_SERVER[$b64_name] : '';
+    }
+    if ($b64_value !== '') {
+        $decoded = base64_decode($b64_value, true);
         if ($decoded !== false) {
             return $decoded;
         }
     }
 
-    $value = getenv($name);
-    if ($value !== false && $value !== '') {
-        return $value;
-    }
-
     return $default;
 }
 
-function talk_env_int(string $name, int $default): int
-{
-    $value = talk_env($name, '');
-    if ($value === '' || !is_numeric($value)) {
-        return $default;
-    }
-    return (int)$value;
-}
-
-function talk_env_bool(string $name, bool $default = false): bool
-{
-    $value = talk_env($name, $default ? 'true' : 'false');
-    return filter_var($value, FILTER_VALIDATE_BOOLEAN);
-}
-
-//****************************************
-// PLEASE SPECIFY THE VARIABLES BELOW
-//****************************************
-
 // Database host.
-$DB_HOST = talk_env('DB_HOST', '');
+$DB_HOST = talk_config_value('DB_HOST', '');
 
 // Database port.
-$DB_PORT = talk_env_int('DB_PORT', 3306);
+$DB_PORT = talk_config_value('DB_PORT', '3306');
 
 // Database name for Talk.
-$DB_NAME = talk_env('DB_NAME', '');
+$DB_NAME = talk_config_value('DB_NAME', '');
 
 // Database username.
-$DB_USER = talk_env('DB_USER', '');
+$DB_USER = talk_config_value('DB_USER', '');
 
 // Database password.
-$DB_PASSWORD = talk_env('DB_PASSWORD', '');
+$DB_PASSWORD = talk_config_value('DB_PASSWORD', '');
 
 /*
  * Trusted static frontend URL.
@@ -69,56 +49,52 @@ $DB_PASSWORD = talk_env('DB_PASSWORD', '');
  * This may contain a path. CORS origin will be derived from this URL.
  *
  * Example:
- *   https://abc.github.io/talk/
+ *   https://example.pages.dev/talk/
  *
  * Derived origin:
- *   https://abc.github.io
+ *   https://example.pages.dev
  */
-$FRONTEND_URL = talk_env('FRONTEND_URL', 'https://abc.github.io/talk/');
+$FRONTEND_URL = talk_config_value('FRONTEND_URL', 'https://abc.pages.dev/');
 
 /*
  * Keep false in production.
  *
  * Set true only for temporary CLI testing without an Origin header.
  */
-$ALLOW_NO_ORIGIN_REQUESTS = talk_env_bool('ALLOW_NO_ORIGIN_REQUESTS', false);
+$ALLOW_NO_ORIGIN_REQUESTS = filter_var(talk_config_value('ALLOW_NO_ORIGIN_REQUESTS', ''), FILTER_VALIDATE_BOOLEAN);
 
 // Default timezone.
-date_default_timezone_set(talk_env('TZ', 'America/Los_Angeles'));
+date_default_timezone_set(talk_config_value('TZ', 'America/Los_Angeles'));
 
 /*
- * Server-side pepper only.
+ * Server-side salt only.
  *
- * Do not change after you start using Talk. If you change this, existing links
- * cannot be opened because access-token HMAC verification will fail.
+ * Do not change after you start using Talk, or existing messages cannot be opened.
  */
-$GLOBAL_SALT_3 = talk_env('GLOBAL_SALT_3', '*&Kjnskjnaucibiqb9298hv9sHIUWNiukJNIusfbic897*(^)');
+$GLOBAL_SALT_3 = talk_config_value('GLOBAL_SALT_3', '*&Kjnskjnaucibiqb9298hv9sHIUWNiukJNIusfbic897*(^)');
 
 //********************************************************************
 // ADVANCED SETTINGS
 //********************************************************************
 
-// Maximum accepted encrypted payload size in bytes.
-$MAX_CIPHERTEXT_BYTES = talk_env_int('MAX_CIPHERTEXT_BYTES', 1048576);
+// PBKDF2 iterations used by new messages. Existing messages use the stored value.
+$PBKDF2_ITERATIONS = talk_config_value('PBKDF2_ITERATIONS', '') !== '' ? (int)talk_config_value('PBKDF2_ITERATIONS') : 210000;
 
-// Default message lifetime in days.
-$DEFAULT_EXPIRE_DAYS = talk_env_int('DEFAULT_EXPIRE_DAYS', 5);
+// Maximum original total file size. 15 MiB by default.
+$MAX_FILE_SUM_BYTES = talk_config_value('MAX_FILE_SUM_BYTES', '') !== '' ? (int)talk_config_value('MAX_FILE_SUM_BYTES') : 15728640;
 
-// Maximum message lifetime in days.
-$MAX_EXPIRE_DAYS = talk_env_int('MAX_EXPIRE_DAYS', 30);
+// Maximum encrypted ciphertext stored in MEDIUMBLOB. MySQL MEDIUMBLOB limit is 16777215 bytes.
+$MAX_CIPHERTEXT_BYTES = talk_config_value('MAX_CIPHERTEXT_BYTES', '') !== '' ? (int)talk_config_value('MAX_CIPHERTEXT_BYTES') : 16777215;
 
-// KDF iteration bounds accepted from the frontend.
-$MIN_PBKDF2_ITERATIONS = talk_env_int('MIN_PBKDF2_ITERATIONS', 100000);
-$MAX_PBKDF2_ITERATIONS = talk_env_int('MAX_PBKDF2_ITERATIONS', 2000000);
+// Short link code length.
+$CODE_LENGTH = talk_config_value('CODE_LENGTH', '') !== '' ? (int)talk_config_value('CODE_LENGTH') : 8;
 
-// Rate limit window in seconds.
-$RATE_LIMIT_WINDOW = talk_env_int('RATE_LIMIT_WINDOW', 300);
+// Expire messages after this many days when the client does not send a value.
+$DEFAULT_EXPIRE_DAYS = talk_config_value('DEFAULT_EXPIRE_DAYS', '') !== '' ? (int)talk_config_value('DEFAULT_EXPIRE_DAYS') : 6;
 
-// Request limits per RATE_LIMIT_WINDOW.
-$RATE_LIMIT_CREATE = talk_env_int('RATE_LIMIT_CREATE', 20);
-$RATE_LIMIT_META = talk_env_int('RATE_LIMIT_META', 120);
-$RATE_LIMIT_OPEN = talk_env_int('RATE_LIMIT_OPEN', 60);
-$RATE_LIMIT_OPEN_CODE = talk_env_int('RATE_LIMIT_OPEN_CODE', 10);
+// Maximum expire days accepted from the client.
+$MAX_EXPIRE_DAYS = talk_config_value('MAX_EXPIRE_DAYS', '') !== '' ? (int)talk_config_value('MAX_EXPIRE_DAYS') : 30;
 
-// How many expired records can be removed during one cleanup pass.
-$CLEANUP_LIMIT = talk_env_int('CLEANUP_LIMIT', 1000);
+// Simple application-level rate limits.
+$CREATE_LIMIT_PER_HOUR = talk_config_value('CREATE_LIMIT_PER_HOUR', '') !== '' ? (int)talk_config_value('CREATE_LIMIT_PER_HOUR') : 120;
+$CHECK_LIMIT_PER_HOUR = talk_config_value('CHECK_LIMIT_PER_HOUR', '') !== '' ? (int)talk_config_value('CHECK_LIMIT_PER_HOUR') : 600;

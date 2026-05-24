@@ -1,72 +1,45 @@
 <?php
-require_once __DIR__ . '/../function/common.php';
-api_bootstrap(true);
-require_method('POST');
+require_once __DIR__ . '/../function/bootstrap.php';
 
+talk_require_method('POST');
+$body = talk_read_json_body();
+$code = isset($body['code']) ? trim((string)$body['code']) : '';
+$token = isset($body['token']) ? trim((string)$body['token']) : '';
+if (!talk_validate_code($code) || $token === '') {
+    talk_json(['ok' => false, 'error' => 'Invalid request.'], 400);
+}
+
+$pdo = talk_db();
 try {
-    $pdo = db();
-    cleanup_expired($pdo);
-    rate_limit_named('open');
-
-    $data = read_json_body();
-    $code = clean_string($data['code'] ?? '', 24);
-    $accessToken = clean_string($data['accessToken'] ?? '', 256);
-
-    if (!validate_code($code)) {
-        json_response(['success' => false, 'error' => 'Invalid code.'], 400);
-    }
-    if (!validate_base64url_string($accessToken, 16, 256)) {
-        json_response(['success' => false, 'error' => 'Invalid access token.'], 400);
-    }
-
-    rate_limit_named('open_code', $code);
-
     $pdo->beginTransaction();
-    try {
-        $stmt = $pdo->prepare('SELECT * FROM talk_messages WHERE code = ? AND expires_at > UTC_TIMESTAMP() FOR UPDATE');
-        $stmt->execute([$code]);
-        $row = $stmt->fetch();
-
-        if (!$row) {
-            $pdo->commit();
-            json_response(['success' => false, 'error' => 'Message not found or expired.'], 404);
-        }
-
-        $expected = $row['access_token_hmac'];
-        $actual = access_token_hmac($accessToken);
-        if (!hash_equals($expected, $actual)) {
-            $pdo->commit();
-            json_response(['success' => false, 'error' => 'Wrong passphrase or message not found.'], 403);
-        }
-
-        if ((int)$row['one_time'] === 1) {
-            $delete = $pdo->prepare('DELETE FROM talk_messages WHERE code = ?');
-            $delete->execute([$code]);
-        } else {
-            $update = $pdo->prepare('UPDATE talk_messages SET opened_at = UTC_TIMESTAMP() WHERE code = ?');
-            $update->execute([$code]);
-        }
-
-        $pdo->commit();
-
-        json_response([
-            'success' => true,
-            'message' => [
-                'code' => $row['code'],
-                'ciphertext' => $row['ciphertext'],
-                'iv' => $row['iv'],
-                'salt' => $row['salt'],
-                'kdf' => $row['kdf'],
-                'iterations' => (int)$row['iterations'],
-                'oneTime' => ((int)$row['one_time']) === 1,
-            ],
-        ]);
-    } catch (Throwable $e) {
-        if ($pdo->inTransaction()) {
-            $pdo->rollBack();
-        }
-        throw $e;
+    $stmt = $pdo->prepare('SELECT ciphertext, ciphertext_bytes, access_token_hmac FROM talk_messages WHERE code = ? AND expire_at > UTC_TIMESTAMP() FOR UPDATE');
+    $stmt->execute([$code]);
+    $row = $stmt->fetch();
+    if (!$row) {
+        $pdo->rollBack();
+        talk_json(['ok' => false, 'error' => 'Message not found, expired, or already opened.'], 404);
     }
+    if (!hash_equals($row['access_token_hmac'], talk_hmac_token($token))) {
+        $pdo->rollBack();
+        talk_json(['ok' => false, 'error' => 'Wrong passphrase.'], 403);
+    }
+
+    $ciphertext = $row['ciphertext'];
+    $bytes = (int)$row['ciphertext_bytes'];
+    $delete = $pdo->prepare('DELETE FROM talk_messages WHERE code = ?');
+    $delete->execute([$code]);
+    $pdo->commit();
+
+    http_response_code(200);
+    header('Content-Type: application/octet-stream');
+    header('Content-Length: ' . $bytes);
+    header('Cache-Control: no-store');
+    header('X-Content-Type-Options: nosniff');
+    echo $ciphertext;
+    exit;
 } catch (Throwable $e) {
-    json_response(['success' => false, 'error' => 'Server error.'], 500);
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+    talk_json(['ok' => false, 'error' => 'Failed to open message.'], 500);
 }

@@ -3,26 +3,25 @@ SET time_zone = "+00:00";
 
 CREATE TABLE IF NOT EXISTS `talk_messages` (
   `code` varchar(24) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
-  `ciphertext` mediumtext COLLATE utf8mb4_unicode_ci NOT NULL,
-  `iv` varchar(128) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  `ciphertext` mediumblob NOT NULL,
+  `ciphertext_bytes` int unsigned NOT NULL,
   `salt` varchar(128) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
-  `kdf` varchar(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'PBKDF2-SHA256',
-  `iterations` int unsigned NOT NULL,
   `access_token_hmac` char(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
-  `hint` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '',
-  `one_time` tinyint(1) NOT NULL DEFAULT 1,
+  `hint` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '',
+  `kdf` varchar(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'PBKDF2-SHA256',
+  `pbkdf2_iterations` int unsigned NOT NULL DEFAULT 210000,
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `expires_at` datetime NOT NULL,
+  `expire_at` datetime NOT NULL,
   `opened_at` datetime DEFAULT NULL,
   PRIMARY KEY (`code`),
-  KEY `idx_expires_at` (`expires_at`),
-  KEY `idx_created_at` (`created_at`)
+  KEY `idx_expire_at` (`expire_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS `talk_rate_limits` (
-  `bucket` char(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
-  `hits` int unsigned NOT NULL,
+  `scope` varchar(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  `bucket` varchar(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  `hits` int unsigned NOT NULL DEFAULT 0,
   `reset_at` datetime NOT NULL,
-  PRIMARY KEY (`bucket`),
+  PRIMARY KEY (`scope`, `bucket`),
   KEY `idx_reset_at` (`reset_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

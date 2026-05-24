@@ -1,68 +1,85 @@
 <?php
-require_once __DIR__ . '/../function/common.php';
-api_bootstrap(true);
-require_method('POST');
+require_once __DIR__ . '/../function/bootstrap.php';
+
+global $MAX_CIPHERTEXT_BYTES, $PBKDF2_ITERATIONS, $CODE_LENGTH, $DEFAULT_EXPIRE_DAYS, $MAX_EXPIRE_DAYS, $CREATE_LIMIT_PER_HOUR;
+
+talk_require_method('POST');
+talk_rate_limit('create', $CREATE_LIMIT_PER_HOUR, 3600);
+talk_cleanup_expired();
+
+$salt = isset($_POST['salt']) ? trim((string)$_POST['salt']) : '';
+$token = isset($_POST['token']) ? trim((string)$_POST['token']) : '';
+$hint = isset($_POST['hint']) ? (string)$_POST['hint'] : '';
+$kdf = isset($_POST['kdf']) ? trim((string)$_POST['kdf']) : 'PBKDF2-SHA256';
+$iterations = isset($_POST['iterations']) ? (int)$_POST['iterations'] : (int)$PBKDF2_ITERATIONS;
+$expire_days = isset($_POST['expires_days']) ? (int)$_POST['expires_days'] : (int)$DEFAULT_EXPIRE_DAYS;
+
+if ($salt === '' || strlen($salt) > 128 || !preg_match('/^[A-Za-z0-9_\-]+$/', $salt)) {
+    talk_json(['ok' => false, 'error' => 'Invalid salt.'], 400);
+}
+if ($token === '' || strlen($token) > 256 || !preg_match('/^[A-Za-z0-9_\-]+$/', $token)) {
+    talk_json(['ok' => false, 'error' => 'Invalid access token.'], 400);
+}
+if ($kdf !== 'PBKDF2-SHA256') {
+    talk_json(['ok' => false, 'error' => 'Unsupported KDF.'], 400);
+}
+if ($iterations < 100000 || $iterations > 2000000) {
+    talk_json(['ok' => false, 'error' => 'Invalid PBKDF2 iterations.'], 400);
+}
+if ($expire_days < 1) {
+    $expire_days = 1;
+}
+if ($expire_days > $MAX_EXPIRE_DAYS) {
+    $expire_days = (int)$MAX_EXPIRE_DAYS;
+}
+if (strlen($hint) > 255) {
+    $hint = function_exists('mb_substr') ? mb_substr($hint, 0, 255, 'UTF-8') : substr($hint, 0, 255);
+}
+
+if (!isset($_FILES['ciphertext']) || !is_uploaded_file($_FILES['ciphertext']['tmp_name'])) {
+    talk_json(['ok' => false, 'error' => 'Missing ciphertext blob.'], 400);
+}
+$size = (int)$_FILES['ciphertext']['size'];
+if ($size <= 0 || $size > $MAX_CIPHERTEXT_BYTES) {
+    talk_json(['ok' => false, 'error' => 'Ciphertext is too large.'], 413);
+}
+$ciphertext = file_get_contents($_FILES['ciphertext']['tmp_name']);
+if ($ciphertext === false || strlen($ciphertext) !== $size) {
+    talk_json(['ok' => false, 'error' => 'Failed to read ciphertext blob.'], 400);
+}
+
+$pdo = talk_db();
+$expire_at = gmdate('Y-m-d H:i:s', time() + $expire_days * 86400);
+$token_hmac = talk_hmac_token($token);
+$length = max(3, min(24, (int)$CODE_LENGTH));
 
 try {
-    $pdo = db();
-    cleanup_expired($pdo);
-    rate_limit_named('create');
-
-    global $MAX_CIPHERTEXT_BYTES, $DEFAULT_EXPIRE_DAYS, $MAX_EXPIRE_DAYS, $MIN_PBKDF2_ITERATIONS, $MAX_PBKDF2_ITERATIONS;
-
-    $data = read_json_body();
-    $ciphertext = clean_string($data['ciphertext'] ?? '', $MAX_CIPHERTEXT_BYTES);
-    $iv = clean_string($data['iv'] ?? '', 128);
-    $salt = clean_string($data['salt'] ?? '', 128);
-    $accessToken = clean_string($data['accessToken'] ?? '', 256);
-    $hint = clean_string($data['hint'] ?? '', 255);
-    $kdf = clean_string($data['kdf'] ?? 'PBKDF2-SHA256', 32);
-    $iterations = isset($data['iterations']) ? (int)$data['iterations'] : 0;
-    $oneTime = !empty($data['oneTime']) ? 1 : 0;
-    $expireDays = isset($data['expireDays']) ? (int)$data['expireDays'] : (int)$DEFAULT_EXPIRE_DAYS;
-
-    if ($kdf !== 'PBKDF2-SHA256') {
-        json_response(['success' => false, 'error' => 'Unsupported KDF.'], 400);
-    }
-    if ($iterations < $MIN_PBKDF2_ITERATIONS || $iterations > $MAX_PBKDF2_ITERATIONS) {
-        json_response(['success' => false, 'error' => 'Invalid PBKDF2 iteration count.'], 400);
-    }
-    if (!validate_base64url_string($ciphertext, 16, (int)$MAX_CIPHERTEXT_BYTES)) {
-        json_response(['success' => false, 'error' => 'Invalid ciphertext.'], 400);
-    }
-    if (!validate_base64url_string($iv, 8, 128) || !validate_base64url_string($salt, 8, 128)) {
-        json_response(['success' => false, 'error' => 'Invalid encryption metadata.'], 400);
-    }
-    if (!validate_base64url_string($accessToken, 16, 256)) {
-        json_response(['success' => false, 'error' => 'Invalid access token.'], 400);
-    }
-
-    $expireDays = max(1, min((int)$MAX_EXPIRE_DAYS, $expireDays));
-    $accessHmac = access_token_hmac($accessToken);
-
-    $code = '';
-    for ($i = 0; $i < 10; $i++) {
-        $candidate = random_code(12);
-        $check = $pdo->prepare('SELECT 1 FROM talk_messages WHERE code = ?');
-        $check->execute([$candidate]);
-        if (!$check->fetch()) {
-            $code = $candidate;
+    for ($i = 0; $i < 16; $i++) {
+        $code = talk_make_code($length);
+        $stmt = $pdo->prepare('SELECT 1 FROM talk_messages WHERE code = ?');
+        $stmt->execute([$code]);
+        if (!$stmt->fetchColumn()) {
             break;
         }
+        $code = '';
     }
-
     if ($code === '') {
-        json_response(['success' => false, 'error' => 'Unable to allocate a message code.'], 500);
+        talk_json(['ok' => false, 'error' => 'Failed to allocate a message code.'], 500);
     }
 
-    $stmt = $pdo->prepare('INSERT INTO talk_messages (code, ciphertext, iv, salt, kdf, iterations, access_token_hmac, hint, one_time, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, DATE_ADD(UTC_TIMESTAMP(), INTERVAL ? DAY))');
-    $stmt->execute([$code, $ciphertext, $iv, $salt, $kdf, $iterations, $accessHmac, $hint, $oneTime, $expireDays]);
+    $stmt = $pdo->prepare('INSERT INTO talk_messages (code, ciphertext, ciphertext_bytes, salt, access_token_hmac, hint, kdf, pbkdf2_iterations, expire_at) VALUES (:code, :ciphertext, :ciphertext_bytes, :salt, :access_token_hmac, :hint, :kdf, :pbkdf2_iterations, :expire_at)');
+    $stmt->bindValue(':code', $code, PDO::PARAM_STR);
+    $stmt->bindValue(':ciphertext', $ciphertext, PDO::PARAM_LOB);
+    $stmt->bindValue(':ciphertext_bytes', $size, PDO::PARAM_INT);
+    $stmt->bindValue(':salt', $salt, PDO::PARAM_STR);
+    $stmt->bindValue(':access_token_hmac', $token_hmac, PDO::PARAM_STR);
+    $stmt->bindValue(':hint', $hint, PDO::PARAM_STR);
+    $stmt->bindValue(':kdf', $kdf, PDO::PARAM_STR);
+    $stmt->bindValue(':pbkdf2_iterations', $iterations, PDO::PARAM_INT);
+    $stmt->bindValue(':expire_at', $expire_at, PDO::PARAM_STR);
+    $stmt->execute();
 
-    json_response([
-        'success' => true,
-        'code' => $code,
-        'expiresInDays' => $expireDays,
-    ]);
+    talk_json(['ok' => true, 'code' => $code, 'expires_at' => $expire_at, 'ciphertext_bytes' => $size]);
 } catch (Throwable $e) {
-    json_response(['success' => false, 'error' => 'Server error.'], 500);
+    talk_json(['ok' => false, 'error' => 'Failed to save message.'], 500);
 }

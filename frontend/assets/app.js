@@ -1,227 +1,296 @@
 (function () {
   'use strict';
 
-  const cfg = window.TALK_CONFIG || {};
+  const config = window.TALK_CONFIG || {};
+  const cryptoHelpers = window.TalkCrypto;
+
   const state = {
+    code: '',
     meta: null,
-    code: null
+    aesKey: null,
+    openedPayload: null
   };
 
   function $(id) {
     return document.getElementById(id);
   }
 
-  function apiBase() {
-    const base = (cfg.API_BASE || '').trim();
-    if (base) return base.replace(/\/+$/, '');
-    return `${window.location.origin}/api`;
-  }
-
-  function frontendBase() {
-    const configured = (cfg.FRONTEND_URL || '').trim();
-    if (configured) return configured.replace(/\/+$/, '/') ;
-    const path = window.location.pathname;
-    if (path && !path.includes('.') && path !== '/') {
-      return `${window.location.origin}/`;
-    }
-    return `${window.location.origin}${window.location.pathname.replace(/[^/]*$/, '')}`;
-  }
-
-  function messageLink(code) {
-    return new URL(code, frontendBase()).toString();
-  }
-
-  function extractCode() {
-    const params = new URLSearchParams(window.location.search);
-    const fromQuery = params.get('code');
-    if (fromQuery) return fromQuery.trim();
-
-    const hash = window.location.hash.replace(/^#\/?/, '').trim();
-    if (hash && /^[A-Za-z0-9_-]{8,24}$/.test(hash)) return hash;
-
-    const path = window.location.pathname.replace(/^\/+|\/+$/g, '');
-    if (path && !path.includes('/') && !path.includes('.') && /^[A-Za-z0-9_-]{8,24}$/.test(path)) {
-      return path;
-    }
-    return '';
-  }
-
-  function show(id) {
-    for (const panel of document.querySelectorAll('[data-panel]')) {
-      panel.hidden = panel.id !== id;
-    }
+  function show(element, visible) {
+    element.hidden = !visible;
   }
 
   function setStatus(id, text, kind) {
     const el = $(id);
-    if (!el) return;
     el.textContent = text || '';
-    el.className = kind ? `status ${kind}` : 'status';
+    el.className = 'status ' + (kind || '');
   }
 
-  async function apiFetch(path, options) {
-    const response = await fetch(`${apiBase()}${path}`, {
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...(options && options.headers ? options.headers : {})
-      }
+  function apiUrl(path) {
+    return String(config.API_BASE || '').replace(/\/+$/, '') + '/' + path.replace(/^\/+/, '');
+  }
+
+  function frontendUrl(code) {
+    const base = String(config.FRONTEND_BASE || window.location.origin).replace(/\/+$/, '');
+    return base + '/' + encodeURIComponent(code);
+  }
+
+  function getCodeFromLocation() {
+    const params = new URLSearchParams(window.location.search);
+    const queryCode = params.get('code');
+    if (queryCode) {
+      return queryCode.trim();
+    }
+    const hash = window.location.hash.replace(/^#\/?/, '');
+    if (hash && !hash.includes('=')) {
+      return hash.trim();
+    }
+    const path = window.location.pathname.replace(/^\/+|\/+$/g, '');
+    if (path && !path.includes('/')) {
+      return path.trim();
+    }
+    if (path.startsWith('open/')) {
+      return path.slice(5).trim();
+    }
+    return '';
+  }
+
+  async function fetchJson(url, options) {
+    const response = await fetch(url, options);
+    let data = null;
+    try {
+      data = await response.json();
+    } catch (e) {
+      throw new Error('Server returned a non-JSON response.');
+    }
+    if (!response.ok || !data.ok) {
+      throw new Error(data && data.error ? data.error : 'Request failed.');
+    }
+    return data;
+  }
+
+  function postBlobWithXhr(url, body) {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', url, true);
+      xhr.responseType = 'arraybuffer';
+      xhr.setRequestHeader('Content-Type', 'application/json');
+      xhr.onload = function () {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve(new Uint8Array(xhr.response));
+          return;
+        }
+        const text = xhr.response ? new TextDecoder().decode(new Uint8Array(xhr.response)) : '';
+        try {
+          const err = JSON.parse(text);
+          reject(new Error(err.error || 'Failed to fetch encrypted blob.'));
+        } catch (e) {
+          reject(new Error('Failed to fetch encrypted blob.'));
+        }
+      };
+      xhr.onerror = function () {
+        reject(new Error('Network error while fetching encrypted blob.'));
+      };
+      xhr.send(JSON.stringify(body));
     });
-    let body = null;
-    try {
-      body = await response.json();
-    } catch (error) {
-      throw new Error('Backend returned a non-JSON response.');
-    }
-    if (!response.ok || !body.success) {
-      throw new Error((body && body.error) || `HTTP ${response.status}`);
-    }
-    return body;
-  }
-
-  function setBusy(button, busy, busyText) {
-    if (!button) return;
-    if (busy) {
-      button.dataset.originalText = button.textContent;
-      button.textContent = busyText || 'Please wait...';
-      button.disabled = true;
-    } else {
-      button.textContent = button.dataset.originalText || button.textContent;
-      button.disabled = false;
-    }
-  }
-
-  async function createMessage(oneTime) {
-    const button = oneTime ? $('create-once') : $('create-unlimited');
-    const message = $('message').value;
-    const passphrase = $('passphrase').value;
-    const hint = $('hint').value;
-    const expireDays = Math.max(1, parseInt($('expire-days').value, 10) || (cfg.DEFAULT_EXPIRE_DAYS || 5));
-    const iterations = parseInt(cfg.PBKDF2_ITERATIONS, 10) || 310000;
-
-    if (!message.trim()) {
-      setStatus('create-status', 'Please enter a message.', 'error');
-      return;
-    }
-    if (!passphrase) {
-      setStatus('create-status', 'Please enter a passphrase.', 'error');
-      return;
-    }
-
-    setBusy(button, true, 'Encrypting...');
-    setStatus('create-status', 'Encrypting locally in this browser...', 'info');
-
-    try {
-      const encrypted = await window.TalkCrypto.encryptMessage(message, passphrase, iterations);
-      setStatus('create-status', 'Uploading encrypted message...', 'info');
-      const result = await apiFetch('/create.php', {
-        method: 'POST',
-        body: JSON.stringify({
-          ...encrypted,
-          hint,
-          oneTime,
-          expireDays
-        })
-      });
-
-      const link = messageLink(result.code);
-      $('generated-link').value = link;
-      $('generated-code').textContent = result.code;
-      $('generated-expiry').textContent = `${result.expiresInDays} day(s)`;
-      $('result-box').hidden = false;
-      setStatus('create-status', 'Done. Send the link and share the passphrase through a separate channel.', 'success');
-    } catch (error) {
-      setStatus('create-status', error.message || 'Failed to create message.', 'error');
-    } finally {
-      setBusy(button, false);
-    }
   }
 
   async function loadMeta(code) {
-    show('open-panel');
     state.code = code;
-    $('open-code').textContent = code;
+    state.meta = null;
     setStatus('open-status', 'Loading message metadata...', 'info');
+    const data = await fetchJson(apiUrl('meta.php?code=' + encodeURIComponent(code)), { method: 'GET' });
+    state.meta = data;
+    $('open-code').value = data.code;
+    $('hint-text').textContent = data.hint || '(No hint provided)';
+    $('expires-text').textContent = data.expires_at || '';
+    show($('meta-panel'), true);
+    show($('decrypt-panel'), true);
+    setStatus('open-status', 'Metadata loaded. Enter the passphrase to open it.', 'success');
+  }
+
+  async function handleCreate(event) {
+    event.preventDefault();
+    setStatus('create-status', '', '');
+    show($('created-panel'), false);
+
+    const message = $('message').value;
+    const passphrase = $('create-passphrase').value;
+    const passphrase2 = $('create-passphrase-confirm').value;
+    const hint = $('hint').value;
+    const expiresDays = $('expires-days').value;
+    const files = Array.from($('files').files || []);
+
+    if (!passphrase) {
+      setStatus('create-status', 'Passphrase is required.', 'error');
+      return;
+    }
+    if (passphrase !== passphrase2) {
+      setStatus('create-status', 'Passphrases do not match.', 'error');
+      return;
+    }
+    if (!message && files.length === 0) {
+      setStatus('create-status', 'Enter a message or attach at least one file.', 'error');
+      return;
+    }
 
     try {
-      const body = await apiFetch(`/meta.php?code=${encodeURIComponent(code)}`, { method: 'GET' });
-      state.meta = body.message;
-      $('open-hint').textContent = body.message.hint || 'No hint was provided.';
-      $('open-type').textContent = body.message.oneTime ? 'One-time message' : 'Unlimited-access message';
-      $('open-expiry').textContent = body.message.expiresAt || '';
-      setStatus('open-status', 'Enter the passphrase to decrypt this message locally.', 'success');
+      setStatus('create-status', 'Encrypting message and attachments in your browser...', 'info');
+      const saltBytes = cryptoHelpers.randomBytes(16);
+      const iterations = Number(config.PBKDF2_ITERATIONS || 210000);
+      const derived = await cryptoHelpers.deriveKeys(passphrase, saltBytes, iterations);
+      const built = await cryptoHelpers.buildEncryptedPayload(message, files, derived.aesKey, {
+        maxFileSumBytes: Number(config.MAX_FILE_SUM_BYTES || 15 * 1024 * 1024),
+        maxUploadBytes: Number(config.MAX_UPLOAD_BYTES || 16 * 1024 * 1024 - 1)
+      });
+
+      setStatus('create-status', 'Uploading encrypted blob...', 'info');
+      const form = new FormData();
+      form.append('salt', cryptoHelpers.base64UrlEncode(saltBytes));
+      form.append('token', derived.token);
+      form.append('hint', hint);
+      form.append('expires_days', expiresDays);
+      form.append('iterations', String(iterations));
+      form.append('kdf', 'PBKDF2-SHA256');
+      form.append('ciphertext', new Blob([built.outer], { type: 'application/octet-stream' }), 'payload.bin');
+
+      const data = await fetchJson(apiUrl('create.php'), {
+        method: 'POST',
+        body: form
+      });
+      const link = frontendUrl(data.code);
+      $('created-link').textContent = link;
+      $('created-link').href = link;
+      $('created-detail').textContent = `Encrypted size: ${data.ciphertext_bytes} bytes. Files: ${built.fileCount}.`;
+      show($('created-panel'), true);
+      setStatus('create-status', 'Created successfully.', 'success');
     } catch (error) {
-      $('open-form').hidden = true;
-      setStatus('open-status', error.message || 'Message not found or expired.', 'error');
+      setStatus('create-status', error.message || String(error), 'error');
     }
   }
 
-  async function openMessage() {
-    const button = $('open-button');
+  async function handleLoadMeta(event) {
+    event.preventDefault();
+    const code = $('open-code').value.trim();
+    if (!code) {
+      setStatus('open-status', 'Enter a message code.', 'error');
+      return;
+    }
+    try {
+      await loadMeta(code);
+    } catch (error) {
+      setStatus('open-status', error.message || String(error), 'error');
+    }
+  }
+
+  async function handleOpen(event) {
+    event.preventDefault();
+    setStatus('open-status', '', '');
+    $('message-output').innerHTML = '';
+    $('attachments-list').textContent = '';
+    show($('result-panel'), false);
+    show($('attachments-panel'), false);
+
+    if (!state.meta) {
+      setStatus('open-status', 'Load the message metadata first.', 'error');
+      return;
+    }
     const passphrase = $('open-passphrase').value;
     if (!passphrase) {
-      setStatus('open-status', 'Please enter the passphrase.', 'error');
+      setStatus('open-status', 'Enter the passphrase.', 'error');
       return;
     }
-    if (!state.meta || !state.code) {
-      setStatus('open-status', 'Message metadata is not loaded.', 'error');
-      return;
-    }
-
-    setBusy(button, true, 'Checking...');
-    setStatus('open-status', 'Deriving access token locally...', 'info');
 
     try {
-      const accessToken = await window.TalkCrypto.accessTokenFor(passphrase, state.meta.salt, state.meta.iterations);
-      const body = await apiFetch('/open.php', {
+      setStatus('open-status', 'Checking passphrase...', 'info');
+      const saltBytes = cryptoHelpers.base64UrlDecode(state.meta.salt);
+      const derived = await cryptoHelpers.deriveKeys(passphrase, saltBytes, Number(state.meta.iterations));
+      await fetchJson(apiUrl('check.php'), {
         method: 'POST',
-        body: JSON.stringify({ code: state.code, accessToken })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: state.meta.code, token: derived.token })
       });
-      setStatus('open-status', 'Decrypting locally in this browser...', 'info');
-      const plaintext = await window.TalkCrypto.decryptMessage(
-        body.message.ciphertext,
-        body.message.iv,
-        body.message.salt,
-        passphrase,
-        body.message.iterations
-      );
-      $('message-output').textContent = plaintext;
-      $('message-output-box').hidden = false;
-      $('open-form').hidden = true;
-      setStatus('open-status', body.message.oneTime ? 'Message decrypted. The server-side copy has been deleted.' : 'Message decrypted.', 'success');
+
+      setStatus('open-status', 'Fetching encrypted blob...', 'info');
+      const outerBytes = await postBlobWithXhr(apiUrl('open.php'), { code: state.meta.code, token: derived.token });
+      const payload = await cryptoHelpers.parseEncryptedPayload(outerBytes, derived.aesKey);
+      state.aesKey = derived.aesKey;
+      state.openedPayload = payload;
+
+      $('message-output').innerHTML = payload.message;
+      renderAttachments(payload.attachments);
+      show($('result-panel'), true);
+      setStatus('open-status', 'Opened successfully. The server-side copy has been deleted.', 'success');
     } catch (error) {
-      setStatus('open-status', error.message || 'Wrong passphrase or message cannot be opened.', 'error');
-    } finally {
-      setBusy(button, false);
+      setStatus('open-status', error.message || String(error), 'error');
     }
   }
 
-  async function copyGeneratedLink() {
+  function renderAttachments(attachments) {
+    const list = $('attachments-list');
+    list.textContent = '';
+    if (!attachments.length) {
+      show($('attachments-panel'), false);
+      return;
+    }
+    for (const attachment of attachments) {
+      const item = document.createElement('li');
+      const link = document.createElement('a');
+      link.href = '#';
+      link.textContent = attachment.name;
+      link.addEventListener('click', async function (event) {
+        event.preventDefault();
+        await downloadAttachment(attachment);
+      });
+      const size = document.createElement('span');
+      size.className = 'attachment-size';
+      size.textContent = ` encrypted ${attachment.encryptedByteLength} bytes`;
+      item.appendChild(link);
+      item.appendChild(size);
+      list.appendChild(item);
+    }
+    show($('attachments-panel'), true);
+  }
+
+  async function downloadAttachment(attachment) {
     try {
-      await navigator.clipboard.writeText($('generated-link').value);
-      setStatus('create-status', 'Link copied.', 'success');
+      setStatus('open-status', `Decrypting ${attachment.name}...`, 'info');
+      const plain = await cryptoHelpers.decryptAttachment(attachment, state.aesKey);
+      const blob = new Blob([plain], { type: 'application/octet-stream' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = attachment.name || 'attachment.bin';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+      setStatus('open-status', 'Attachment decrypted. Your browser should start the download.', 'success');
     } catch (error) {
-      setStatus('create-status', 'Copy failed. Please copy the link manually.', 'error');
+      setStatus('open-status', error.message || String(error), 'error');
     }
   }
 
-  function init() {
-    $('create-once').addEventListener('click', () => createMessage(true));
-    $('create-unlimited').addEventListener('click', () => createMessage(false));
-    $('copy-link').addEventListener('click', copyGeneratedLink);
-    $('open-button').addEventListener('click', openMessage);
-    $('new-message').addEventListener('click', () => {
-      history.pushState(null, '', frontendBase());
-      show('create-panel');
-    });
+  function copyCreatedLink() {
+    const link = $('created-link').textContent;
+    navigator.clipboard.writeText(link).then(
+      () => setStatus('create-status', 'Link copied.', 'success'),
+      () => setStatus('create-status', 'Copy failed. Please copy the link manually.', 'error')
+    );
+  }
 
-    const code = extractCode();
+  function initialize() {
+    $('create-form').addEventListener('submit', handleCreate);
+    $('load-meta-form').addEventListener('submit', handleLoadMeta);
+    $('decrypt-form').addEventListener('submit', handleOpen);
+    $('copy-link').addEventListener('click', copyCreatedLink);
+
+    const code = getCodeFromLocation();
     if (code) {
-      loadMeta(code);
-    } else {
-      show('create-panel');
+      $('open-code').value = code;
+      loadMeta(code).catch((error) => setStatus('open-status', error.message || String(error), 'error'));
+      $('open-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   }
 
-  document.addEventListener('DOMContentLoaded', init);
-}());
+  document.addEventListener('DOMContentLoaded', initialize);
+})();

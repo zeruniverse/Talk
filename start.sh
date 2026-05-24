@@ -1,41 +1,40 @@
 #!/bin/sh
 set -eu
 
-ROOT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+ROOT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 LISTEN_PORT_VALUE="${LISTEN_PORT:-${FC_SERVER_PORT:-9000}}"
-RENDERED_NGINX="/tmp/talk-nginx.conf"
+NGINX_RENDERED="/tmp/talk-nginx.conf"
 
-b64_env() {
-    name="$1"
-    eval "value=\${$name:-}"
-    if command -v base64 >/dev/null 2>&1; then
-        printf '%s' "$value" | base64 | tr -d '\n'
-    else
-        php -r 'echo base64_encode(stream_get_contents(STDIN));'
-    fi
+mkdir -p /tmp/nginx-client-body /tmp
+cp "$ROOT_DIR/nginx.conf" "$NGINX_RENDERED"
+
+escape_sed_replacement() {
+    printf '%s' "$1" | sed 's/[|&]/\\&/g'
 }
 
 replace_placeholder() {
-    file="$1"
-    placeholder="$2"
-    value="$3"
-    escaped=$(printf '%s' "$value" | sed 's/[\\&|]/\\&/g')
-    sed -i "s|$placeholder|$escaped|g" "$file"
+    placeholder="$1"
+    value="$2"
+    safe_value="$(escape_sed_replacement "$value")"
+    sed -i "s|$placeholder|$safe_value|g" "$NGINX_RENDERED"
 }
 
-mkdir -p /tmp/client_body /tmp/proxy_temp /tmp/fastcgi_temp /tmp/uwsgi_temp /tmp/scgi_temp
-cp "$ROOT_DIR/nginx.conf" "$RENDERED_NGINX"
+value_b64() {
+    name="$1"
+    eval "value=\${$name:-}"
+    printf '%s' "$value" | base64 | tr -d '\n'
+}
 
-replace_placeholder "$RENDERED_NGINX" "__LISTEN_PORT__" "$LISTEN_PORT_VALUE"
-replace_placeholder "$RENDERED_NGINX" "__ROOT_DIR__" "$ROOT_DIR"
+replace_placeholder "__APP_ROOT__" "$ROOT_DIR"
+replace_placeholder "__LISTEN_PORT__" "$LISTEN_PORT_VALUE"
 
 for name in \
     DB_HOST DB_PORT DB_NAME DB_USER DB_PASSWORD FRONTEND_URL ALLOW_NO_ORIGIN_REQUESTS TZ GLOBAL_SALT_3 \
-    MAX_CIPHERTEXT_BYTES DEFAULT_EXPIRE_DAYS MAX_EXPIRE_DAYS MIN_PBKDF2_ITERATIONS MAX_PBKDF2_ITERATIONS \
-    RATE_LIMIT_WINDOW RATE_LIMIT_CREATE RATE_LIMIT_META RATE_LIMIT_OPEN RATE_LIMIT_OPEN_CODE CLEANUP_LIMIT
- do
-    replace_placeholder "$RENDERED_NGINX" "__${name}_B64__" "$(b64_env "$name")"
- done
+    PBKDF2_ITERATIONS MAX_FILE_SUM_BYTES MAX_CIPHERTEXT_BYTES CODE_LENGTH DEFAULT_EXPIRE_DAYS MAX_EXPIRE_DAYS \
+    CREATE_LIMIT_PER_HOUR CHECK_LIMIT_PER_HOUR
+    do
+        replace_placeholder "__${name}_B64__" "$(value_b64 "$name")"
+    done
 
-php-fpm -y "$ROOT_DIR/php-fpm.conf" -c "$ROOT_DIR/php.ini"
-exec nginx -c "$RENDERED_NGINX" -g 'daemon off;'
+php-fpm7.4 -y "$ROOT_DIR/php-fpm.conf" -c "$ROOT_DIR/php.ini"
+exec nginx -c "$NGINX_RENDERED" -g 'daemon off;'

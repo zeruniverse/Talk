@@ -1,20 +1,18 @@
-/*
- * Talk frontend configuration.
- *
- * This file is intentionally local and editable. Do not load configuration from
- * a third-party script. Deploy frontend/ to Cloudflare Pages and set API_BASE
- * to your Aliyun FC backend API URL.
- */
 window.TALK_CONFIG = {
-  // Example: 'https://api.example.com/api'
-  API_BASE: '',
+  // Change this to your Aliyun FC backend API URL.
+  // Example: https://api.example.com/api
+  API_BASE: 'https://api.example.com/api',
 
-  // Example: 'https://talk.example.com/'
-  // Leave empty to use the current site origin and path.
-  FRONTEND_URL: '',
+  // Change this to your Cloudflare Pages frontend URL.
+  // Example: https://talk.example.com
+  FRONTEND_BASE: 'https://talk.example.com',
 
-  // Must fit backend MIN_PBKDF2_ITERATIONS and MAX_PBKDF2_ITERATIONS.
-  PBKDF2_ITERATIONS: 310000,
+  // Must match the backend value used for new messages.
+  PBKDF2_ITERATIONS: 21000,
 
-  DEFAULT_EXPIRE_DAYS: 5
+  // 15 MiB original total file size limit.
+  MAX_FILE_SUM_BYTES: 15 * 1024 * 1024,
+
+  // Encrypted blob must fit MySQL MEDIUMBLOB.
+  MAX_UPLOAD_BYTES: 16 * 1024 * 1024 - 1
 };
