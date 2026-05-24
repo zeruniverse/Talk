@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Talk - client-side encrypted sensitive message sharing">
+  <title>Talk</title>
+  <link rel="icon" href="/favicon.ico">
+  <link rel="stylesheet" href="/assets/style.css">
+</head>
+<body>
+  <main>
+    <section class="hero">
+      <div class="brand">
+        <img src="/assets/logo.png" alt="Talk logo">
+        <div>
+          <h1>Talk</h1>
+          <p class="muted">Share sensitive data with browser-side encryption.</p>
+        </div>
+      </div>
+      <p>Your message is encrypted and decrypted locally in the browser with AES-GCM. The backend stores only ciphertext and a server-HMACed access token.</p>
+    </section>
+
+    <section class="card grid" id="create-panel" data-panel hidden>
+      <h2>Start a secure message</h2>
+      <label>
+        Message to send
+        <textarea id="message" autocomplete="off" spellcheck="false"></textarea>
+      </label>
+      <label>
+        Passphrase
+        <input id="passphrase" type="password" autocomplete="new-password">
+        <small>Share this passphrase through a separate channel.</small>
+      </label>
+      <label>
+        Passphrase hint, optional
+        <input id="hint" type="text" maxlength="255" autocomplete="off">
+        <small>The hint is stored and displayed in plaintext.</small>
+      </label>
+      <label>
+        Expire after days
+        <input id="expire-days" type="number" min="1" max="30" value="5">
+      </label>
+      <div class="actions">
+        <button id="create-once" type="button">Generate one-time link</button>
+        <button id="create-unlimited" class="secondary" type="button">Generate reusable link</button>
+      </div>
+      <div class="status" id="create-status" aria-live="polite"></div>
+      <div class="result" id="result-box" hidden>
+        <strong>Your link</strong>
+        <div class="link-row">
+          <input id="generated-link" readonly>
+          <button id="copy-link" type="button">Copy</button>
+        </div>
+        <p class="muted">Code: <span id="generated-code"></span> · Expires in <span id="generated-expiry"></span></p>
+      </div>
+    </section>
+
+    <section class="card grid" id="open-panel" data-panel hidden>
+      <h2>Open message</h2>
+      <p class="muted">Code: <span id="open-code"></span></p>
+      <p><strong>Type:</strong> <span id="open-type"></span></p>
+      <p><strong>Expires at:</strong> <span id="open-expiry"></span> UTC</p>
+      <p><strong>Passphrase hint:</strong> <span id="open-hint"></span></p>
+      <div id="open-form" class="grid">
+        <label>
+          Passphrase
+          <input id="open-passphrase" type="password" autocomplete="current-password">
+        </label>
+        <div class="actions">
+          <button id="open-button" type="button">Decrypt message</button>
+          <button id="new-message" class="secondary" type="button">Send a new message</button>
+        </div>
+      </div>
+      <div class="status" id="open-status" aria-live="polite"></div>
+      <div id="message-output-box" hidden>
+        <h2>Your message</h2>
+        <pre id="message-output"></pre>
+      </div>
+    </section>
+  </main>
+
+  <footer>Original Talk project by Jeffery Zhao. All cryptographic operations for message content run in your browser.</footer>
+
+  <script src="/assets/config.js"></script>
+  <script src="/assets/crypto.js"></script>
+  <script src="/assets/app.js"></script>
+</body>
+</html>
