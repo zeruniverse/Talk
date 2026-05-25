@@ -12,7 +12,7 @@ $token = isset($_POST['token']) ? trim((string)$_POST['token']) : '';
 $hint = isset($_POST['hint']) ? (string)$_POST['hint'] : '';
 $kdf = isset($_POST['kdf']) ? trim((string)$_POST['kdf']) : 'PBKDF2-SHA256';
 $iterations = isset($_POST['iterations']) ? (int)$_POST['iterations'] : (int)$PBKDF2_ITERATIONS;
-$expire_days = isset($_POST['expires_days']) ? (int)$_POST['expires_days'] : (int)$DEFAULT_EXPIRE_DAYS;
+$expire_mins = isset($_POST['expires_mins']) ? (int)$_POST['expires_mins'] : 1440*(int)$DEFAULT_EXPIRE_DAYS;
 $multi_view = isset($_POST['multi_view']) && in_array((string)$_POST['multi_view'], ['1', 'true', 'yes', 'on'], true) ? 1 : 0;
 
 if ($salt === '' || strlen($salt) > 128 || !preg_match('/^[A-Za-z0-9_\-]+$/', $salt)) {
@@ -27,11 +27,11 @@ if ($kdf !== 'PBKDF2-SHA256') {
 if ($iterations < 100000 || $iterations > 2000000) {
     talk_json(['ok' => false, 'error' => 'Invalid PBKDF2 iterations.'], 400);
 }
-if ($expire_days < 1) {
-    $expire_days = 1;
+if ($expire_mins < 1) {
+    $expire_mins = 1;
 }
-if ($expire_days > $MAX_EXPIRE_DAYS) {
-    $expire_days = (int)$MAX_EXPIRE_DAYS;
+if ($expire_mins > 1440*(int)$MAX_EXPIRE_DAYS) {
+    $expire_mins = 1440*(int)$MAX_EXPIRE_DAYS;
 }
 if (strlen($hint) > 255) {
     $hint = function_exists('mb_substr') ? mb_substr($hint, 0, 255, 'UTF-8') : substr($hint, 0, 255);
@@ -50,11 +50,12 @@ if ($ciphertext === false || strlen($ciphertext) !== $size) {
 }
 
 $pdo = talk_db();
-$expire_at = gmdate('Y-m-d H:i:s', time() + $expire_days * 86400);
+$expire_at = gmdate('Y-m-d H:i:s', time() + $expire_mins * 60);
 $token_hmac = talk_hmac_token($token);
 $length = max(3, min(24, (int)$CODE_LENGTH));
 
 try {
+    $code = '';
     for ($i = 0; $i < 16; $i++) {
         $code = talk_make_code($length);
         $stmt = $pdo->prepare('SELECT 1 FROM talk_messages WHERE code = ?');
@@ -62,7 +63,6 @@ try {
         if (!$stmt->fetchColumn()) {
             break;
         }
-        $code = '';
     }
     if ($code === '') {
         talk_json(['ok' => false, 'error' => 'Failed to allocate a message code.'], 500);

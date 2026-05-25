@@ -120,7 +120,7 @@
     const message = $('message').value;
     const passphrase = effectivePassphrase($('create-passphrase').value);
     const hint = $('hint').value;
-    const expiresDays = $('expires-days').value;
+    const expiresMins = $('expires-mins').value;
     const multiView = $('multi-view').checked;
     const files = Array.from($('files').files || []);
 
@@ -144,7 +144,7 @@
       form.append('salt', cryptoHelpers.base64UrlEncode(saltBytes));
       form.append('token', derived.token);
       form.append('hint', hint);
-      form.append('expires_days', expiresDays);
+      form.append('expires_mins', expiresMins);
       form.append('iterations', String(iterations));
       form.append('kdf', 'PBKDF2-SHA256');
       form.append('multi_view', multiView ? '1' : '0');
@@ -209,7 +209,7 @@
       state.aesKey = derived.aesKey;
       state.openedPayload = payload;
 
-      $('message-output').innerHTML = payload.message;
+      $('message-output').innerHTML = '<pre>' + payload.message + '</pre>';
       renderAttachments(payload.attachments);
       show($('result-panel'), true);
       const openedStatus = state.meta.multi_view ? 'Opened successfully. This message can be viewed again until it expires.' : 'Opened successfully. The server-side copy has been deleted.';

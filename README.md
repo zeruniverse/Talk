@@ -5,8 +5,10 @@ Transfer sensitive messages and attachments safely.
 This package is prepared for this deployment model:
 
 - `frontend/` -> Cloudflare Pages static site
-- `backend/` + `nginx.conf` + `php-fpm.conf` + `php.ini` + `start.sh` -> Aliyun Function Compute custom runtime / web function
+- `backend/` + `nginx.conf` + `php-fpm.conf` + `php.ini` + `start.sh` -> Serverless deployment (Tested in Alibaba Cloud FC)
 - `initial.sql` -> MySQL schema
+
+You can also deploy everything in a single server.
 
 The frontend does not load JavaScript from any external source. It only loads these local files:
 
