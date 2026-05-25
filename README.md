@@ -187,3 +187,4 @@ POST /api/open.php        JSON: {"code":"...","token":"..."}; returns applicatio
 - The backend cannot decrypt messages or attachments.
 - Messages are one-time read by default. If `Allow multiple views` is selected, a successful `open.php` call keeps the stored blob until expiration.
 - Message output is intentionally rendered as raw HTML because this project explicitly preserves HTML tags in messages. Only share links with people you trust.
+- Use strong passphrase to protect your data. If you use weak / no passphrase, it's just data transmission without any protection
