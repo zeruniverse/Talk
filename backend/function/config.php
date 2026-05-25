@@ -90,10 +90,10 @@ $MAX_CIPHERTEXT_BYTES = talk_config_value('MAX_CIPHERTEXT_BYTES', '') !== '' ? (
 $CODE_LENGTH = talk_config_value('CODE_LENGTH', '') !== '' ? (int)talk_config_value('CODE_LENGTH') : 8;
 
 // Expire messages after this many days when the client does not send a value.
-$DEFAULT_EXPIRE_DAYS = talk_config_value('DEFAULT_EXPIRE_DAYS', '') !== '' ? (int)talk_config_value('DEFAULT_EXPIRE_DAYS') : 6;
+$DEFAULT_EXPIRE_DAYS = talk_config_value('DEFAULT_EXPIRE_DAYS', '') !== '' ? (int)talk_config_value('DEFAULT_EXPIRE_DAYS') : 1;
 
 // Maximum expire days accepted from the client.
-$MAX_EXPIRE_DAYS = talk_config_value('MAX_EXPIRE_DAYS', '') !== '' ? (int)talk_config_value('MAX_EXPIRE_DAYS') : 30;
+$MAX_EXPIRE_DAYS = talk_config_value('MAX_EXPIRE_DAYS', '') !== '' ? (int)talk_config_value('MAX_EXPIRE_DAYS') : 7;
 
 // Simple application-level rate limits.
 $CREATE_LIMIT_PER_HOUR = talk_config_value('CREATE_LIMIT_PER_HOUR', '') !== '' ? (int)talk_config_value('CREATE_LIMIT_PER_HOUR') : 120;
