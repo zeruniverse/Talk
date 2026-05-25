@@ -106,7 +106,6 @@
     state.meta = data;
     $('open-code').value = data.code;
     $('hint-text').textContent = data.hint || '(No hint provided)';
-    $('expires-text').textContent = data.expires_at || '';
     show($('meta-panel'), true);
     show($('decrypt-panel'), true);
     setStatus('open-status', 'Metadata loaded. Enter the passphrase to open it.', 'success');
