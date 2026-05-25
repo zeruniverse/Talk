@@ -4,7 +4,7 @@ Transfer sensitive messages and attachments safely.
 
 This package is prepared for this deployment model:
 
-- `frontend/` -> Cloudflare Pages static site
+- `frontend/` -> static hosting (Tested in Cloudflare Pages)
 - `backend/` + `nginx.conf` + `php-fpm.conf` + `php.ini` + `start.sh` -> Serverless deployment (Tested in Alibaba Cloud FC)
 - `initial.sql` -> MySQL schema
 
@@ -65,7 +65,7 @@ For each message:
 
 7. The whole assembled block is AES-GCM encrypted again and uploaded as `ciphertext`.
 
-When opening a message, the frontend first verifies the key with `check.php`. If the check passes, it uses XHR `POST` to fetch the complete encrypted blob from `open.php`. By default, the backend deletes the server-side copy during this successful open operation. If `Allow multiple views` was selected during creation, the server-side copy is kept until expiration. The browser then decrypts the outer block, decrypts the JSON block, displays `message` as raw HTML, and creates download links for each attachment. Attachment files are decrypted only when the user clicks a download link.
+When opening a message, the frontend uses XHR `POST` to fetch the complete encrypted blob from `open.php`. By default, the backend deletes the server-side copy during this successful open operation. If `Allow multiple views` was selected during creation, the server-side copy is kept until expiration. The browser then decrypts the outer block, decrypts the JSON block, displays `message` as raw HTML, and creates download links for each attachment. Attachment files are decrypted only when the user clicks a download link.
 
 ## Limits
 
@@ -111,8 +111,6 @@ Also edit `frontend/_headers` and replace this placeholder with your backend dom
 ```text
 connect-src https://api.example.com
 ```
-
-Cloudflare Pages will use `frontend/_redirects` so short links like `https://talk.example.com/AbC123xy` open the SPA.
 
 ## Backend deployment on Aliyun Function Compute
 
@@ -178,10 +176,8 @@ The Nginx startup script injects environment variables into PHP through `fastcgi
 ## API endpoints
 
 ```text
-GET  /api/health.php
 POST /api/create.php      multipart/form-data with ciphertext blob
 GET  /api/meta.php?code=CODE
-POST /api/check.php       JSON: {"code":"...","token":"..."}
 POST /api/open.php        JSON: {"code":"...","token":"..."}; returns application/octet-stream
 ```
 

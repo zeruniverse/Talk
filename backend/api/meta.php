@@ -1,10 +1,13 @@
 <?php
 require_once __DIR__ . '/../function/bootstrap.php';
 
+global $CHECK_LIMIT_PER_HOUR;
+
 talk_require_method('GET');
+talk_rate_limit('check', $CHECK_LIMIT_PER_HOUR, 3600);
 talk_cleanup_expired();
 
-$code = isset($_GET['code']) ? trim((string)$_GET['code']) : '';
+$code = isset($_GET['code']) ? strtolower(trim((string)$_GET['code'])) : '';
 if (!talk_validate_code($code)) {
     talk_json(['ok' => false, 'error' => 'Invalid code.'], 400);
 }

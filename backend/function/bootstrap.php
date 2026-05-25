@@ -92,11 +92,11 @@ function talk_db() {
 }
 
 function talk_validate_code($code) {
-    return is_string($code) && preg_match('/^[A-Za-z0-9]{3,24}$/', $code);
+    return is_string($code) && preg_match('/^[a-z0-9]{3,24}$/', $code);
 }
 
 function talk_make_code($length) {
-    $alphabet = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    $alphabet = '0123456789abcdefghijklmnopqrstuvwxyz';
     $max = strlen($alphabet) - 1;
     $code = '';
     for ($i = 0; $i < $length; $i++) {

@@ -194,16 +194,9 @@
     const passphrase = effectivePassphrase($('open-passphrase').value);
 
     try {
-      setStatus('open-status', 'Checking passphrase...', 'info');
+      setStatus('open-status', 'Fetching encrypted blob...', 'info');
       const saltBytes = cryptoHelpers.base64UrlDecode(state.meta.salt);
       const derived = await cryptoHelpers.deriveKeys(passphrase, saltBytes, Number(state.meta.iterations));
-      await fetchJson(apiUrl('check.php'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: state.meta.code, token: derived.token })
-      });
-
-      setStatus('open-status', 'Fetching encrypted blob...', 'info');
       const outerBytes = await postBlobWithXhr(apiUrl('open.php'), { code: state.meta.code, token: derived.token });
       const payload = await cryptoHelpers.parseEncryptedPayload(outerBytes, derived.aesKey);
       state.aesKey = derived.aesKey;
