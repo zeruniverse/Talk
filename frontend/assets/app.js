@@ -209,7 +209,7 @@
       state.aesKey = derived.aesKey;
       state.openedPayload = payload;
 
-      $('message-output').innerHTML = '<pre>' + payload.message + '</pre>';
+      $('message-output').textContent =  payload.message;
       renderAttachments(payload.attachments);
       show($('result-panel'), true);
       const openedStatus = state.meta.multi_view ? 'Opened successfully. This message can be viewed again until it expires.' : 'Opened successfully. The server-side copy has been deleted.';
