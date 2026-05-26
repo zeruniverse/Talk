@@ -100,7 +100,7 @@ window.TALK_CONFIG = {
   API_BASE: 'https://api.example.com/api',
   FRONTEND_BASE: 'https://talk.example.com',
   DEFAULT_PASSWORD: 'change-this-default-passphrase',
-  PBKDF2_ITERATIONS: 210000,
+  PBKDF2_ITERATIONS: 2333333,
   MAX_FILE_SUM_BYTES: 15 * 1024 * 1024,
   MAX_UPLOAD_BYTES: 16 * 1024 * 1024 - 1
 };
@@ -149,8 +149,6 @@ Optional environment variables:
 ```text
 ALLOW_NO_ORIGIN_REQUESTS=false
 TZ=America/Los_Angeles
-PBKDF2_ITERATIONS=210000
-MAX_FILE_SUM_BYTES=15728640
 MAX_CIPHERTEXT_BYTES=16777215
 CODE_LENGTH=8
 DEFAULT_EXPIRE_DAYS=1
@@ -186,5 +184,5 @@ POST /api/open.php        JSON: {"code":"...","token":"..."}; returns applicatio
 - The passphrase is never sent to the backend. Leaving the passphrase field blank uses `DEFAULT_PASSWORD` from `frontend/assets/config.js`.
 - The backend cannot decrypt messages or attachments.
 - Messages are one-time read by default. If `Allow multiple views` is selected, a successful `open.php` call keeps the stored blob until expiration.
-- Message output is intentionally rendered as raw HTML because this project explicitly preserves HTML tags in messages. Only share links with people you trust.
+- Message preserves the original format, HTML will not be rendered.
 - Use strong passphrase to protect your data. If you use weak / no passphrase, it's just data transmission without any protection

@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/../function/bootstrap.php';
 
-global $MAX_CIPHERTEXT_BYTES, $PBKDF2_ITERATIONS, $CODE_LENGTH, $DEFAULT_EXPIRE_DAYS, $MAX_EXPIRE_DAYS, $CREATE_LIMIT_PER_HOUR;
+global $MAX_CIPHERTEXT_BYTES, $CODE_LENGTH, $DEFAULT_EXPIRE_DAYS, $MAX_EXPIRE_DAYS, $CREATE_LIMIT_PER_HOUR;
 
 talk_require_method('POST');
 talk_rate_limit('create', $CREATE_LIMIT_PER_HOUR, 3600);

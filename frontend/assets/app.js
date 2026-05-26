@@ -139,9 +139,10 @@
     try {
       setStatus('create-status', 'Encrypting message and attachments in your browser...', 'info');
       const saltBytes = cryptoHelpers.randomBytes(16);
-      const iterations = Number(config.PBKDF2_ITERATIONS || 2100000) + cryptoHelpers.randomInt(100000);
+      const config_iterations = Number(config.PBKDF2_ITERATIONS || 2100000);
+      const iterations = config_iterations + cryptoHelpers.randomInt(100000);
       const additionalData = gcmAdditionalData(iterations, multiView);
-      const derived = await cryptoHelpers.deriveKeys(passphrase, saltBytes, iterations);
+      const derived = await cryptoHelpers.deriveKeys(passphrase, saltBytes, iterations + config_iterations);
       const built = await cryptoHelpers.buildEncryptedPayload(message, files, derived.aesKey, {
         maxFileSumBytes: Number(config.MAX_FILE_SUM_BYTES || 15 * 1024 * 1024),
         maxUploadBytes: Number(config.MAX_UPLOAD_BYTES || 16 * 1024 * 1024 - 1),
@@ -207,7 +208,8 @@
       const saltBytes = cryptoHelpers.base64UrlDecode(state.meta.salt);
       const iterations = Number(state.meta.iterations);
       const additionalData = gcmAdditionalData(iterations, state.meta.multi_view);
-      const derived = await cryptoHelpers.deriveKeys(passphrase, saltBytes, iterations);
+      const config_iterations = Number(config.PBKDF2_ITERATIONS || 2100000);
+      const derived = await cryptoHelpers.deriveKeys(passphrase, saltBytes, iterations + config_iterations);
       const outerBytes = await postBlobWithXhr(apiUrl('open.php'), { code: state.meta.code, token: derived.token });
       const payload = await cryptoHelpers.parseEncryptedPayload(outerBytes, derived.aesKey, additionalData);
       state.aesKey = derived.aesKey;

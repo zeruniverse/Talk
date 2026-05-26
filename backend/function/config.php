@@ -77,9 +77,6 @@ $GLOBAL_SALT_3 = talk_config_value('GLOBAL_SALT_3', '*&Kjnskjnaucibiqb9298hv9sHI
 // ADVANCED SETTINGS
 //********************************************************************
 
-// PBKDF2 iterations used by new messages. Existing messages use the stored value.
-$PBKDF2_ITERATIONS = talk_config_value('PBKDF2_ITERATIONS', '') !== '' ? (int)talk_config_value('PBKDF2_ITERATIONS') : 2100000;
-
 // Maximum encrypted ciphertext stored in MEDIUMBLOB. MySQL MEDIUMBLOB limit is 16777215 bytes.
 $MAX_CIPHERTEXT_BYTES = talk_config_value('MAX_CIPHERTEXT_BYTES', '') !== '' ? (int)talk_config_value('MAX_CIPHERTEXT_BYTES') : 16777215;
 
