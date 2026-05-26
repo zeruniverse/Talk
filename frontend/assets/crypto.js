@@ -19,7 +19,15 @@
   }
 
   function randomInt(max) {
-    return crypto.randomInt(max);
+    if (!Number.isSafeInteger(max) || max <= 0 || max > 0xffffffff) {
+      throw new Error('Invalid random integer range.');
+    }
+    const limit = Math.floor(0x100000000 / max) * max;
+    const value = new Uint32Array(1);
+    do {
+      crypto.getRandomValues(value);
+    } while (value[0] >= limit);
+    return value[0] % max;
   }
 
   function base64UrlEncode(bytes) {
@@ -98,13 +106,28 @@
     };
   }
 
-  async function encryptBytes(aesKey, bytes) {
+  function normalizeAdditionalData(additionalData) {
+    if (additionalData === undefined || additionalData === null) {
+      return undefined;
+    }
+    if (additionalData instanceof Uint8Array) {
+      return additionalData;
+    }
+    return utf8Encode(String(additionalData));
+  }
+
+  async function encryptBytes(aesKey, bytes, additionalData) {
     const iv = randomBytes(12);
-    const encrypted = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, aesKey, bytes));
+    const algorithm = { name: 'AES-GCM', iv };
+    const aad = normalizeAdditionalData(additionalData);
+    if (aad !== undefined) {
+      algorithm.additionalData = aad;
+    }
+    const encrypted = new Uint8Array(await crypto.subtle.encrypt(algorithm, aesKey, bytes));
     return concatBytes([iv, encrypted]);
   }
 
-  async function decryptBytes(aesKey, encryptedBytes) {
+  async function decryptBytes(aesKey, encryptedBytes, additionalData) {
     if (!(encryptedBytes instanceof Uint8Array)) {
       encryptedBytes = new Uint8Array(encryptedBytes);
     }
@@ -113,7 +136,12 @@
     }
     const iv = encryptedBytes.slice(0, 12);
     const ciphertext = encryptedBytes.slice(12);
-    return new Uint8Array(await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, aesKey, ciphertext));
+    const algorithm = { name: 'AES-GCM', iv };
+    const aad = normalizeAdditionalData(additionalData);
+    if (aad !== undefined) {
+      algorithm.additionalData = aad;
+    }
+    return new Uint8Array(await crypto.subtle.decrypt(algorithm, aesKey, ciphertext));
   }
 
   async function buildEncryptedPayload(message, files, aesKey, limits) {
@@ -150,15 +178,15 @@
 
     const header = encodeUint24BE(encryptedJson.byteLength);
     const assembled = concatBytes([header, encryptedJson, ...encryptedFiles]);
-    const outer = await encryptBytes(aesKey, assembled);
+    const outer = await encryptBytes(aesKey, assembled, limits.additionalData);
     if (outer.byteLength > maxUpload) {
       throw new Error('Encrypted payload is larger than 16 MiB and cannot be stored.');
     }
     return { outer, jsonBytes: encryptedJson.byteLength, fileCount: encryptedFiles.length };
   }
 
-  async function parseEncryptedPayload(outerBytes, aesKey) {
-    const assembled = await decryptBytes(aesKey, outerBytes);
+  async function parseEncryptedPayload(outerBytes, aesKey, additionalData) {
+    const assembled = await decryptBytes(aesKey, outerBytes, additionalData);
     if (assembled.byteLength < 3) {
       throw new Error('Invalid payload.');
     }

@@ -15,7 +15,9 @@ $iterations = isset($_POST['iterations']) ? (int)$_POST['iterations'] : 0; // mu
 $expire_mins = isset($_POST['expires_mins']) ? (int)$_POST['expires_mins'] : 1440*(int)$DEFAULT_EXPIRE_DAYS;
 $multi_view = isset($_POST['multi_view']) && in_array((string)$_POST['multi_view'], ['1', 'true', 'yes', 'on'], true) ? 1 : 0;
 
-if ($iterations < 600000) talk_json(['ok' => false, 'error' => 'Invalid iteration counts.'], 400);
+if ($iterations < 600000 || $iterations > 5000000) {
+    talk_json(['ok' => false, 'error' => 'Invalid PBKDF2 iterations.'], 400);
+}
 
 if ($salt === '' || strlen($salt) > 128 || !preg_match('/^[A-Za-z0-9_\-]+$/', $salt)) {
     talk_json(['ok' => false, 'error' => 'Invalid salt.'], 400);
