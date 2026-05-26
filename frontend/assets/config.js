@@ -11,7 +11,7 @@ window.TALK_CONFIG = {
   DEFAULT_PASSWORD: 'change-this-default-passphrase',
 
   // Must match the backend value used for new messages.
-  PBKDF2_ITERATIONS: 210000,
+  PBKDF2_ITERATIONS: 2333333,
 
   // 15 MiB original total file size limit.
   MAX_FILE_SUM_BYTES: 15 * 1024 * 1024,

@@ -131,7 +131,7 @@
     try {
       setStatus('create-status', 'Encrypting message and attachments in your browser...', 'info');
       const saltBytes = cryptoHelpers.randomBytes(16);
-      const iterations = Number(config.PBKDF2_ITERATIONS || 210000);
+      const iterations = Number(config.PBKDF2_ITERATIONS || 0) + cryptoHelpers.randomInt(100000);
       const derived = await cryptoHelpers.deriveKeys(passphrase, saltBytes, iterations);
       const built = await cryptoHelpers.buildEncryptedPayload(message, files, derived.aesKey, {
         maxFileSumBytes: Number(config.MAX_FILE_SUM_BYTES || 15 * 1024 * 1024),

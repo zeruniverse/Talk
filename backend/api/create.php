@@ -11,9 +11,11 @@ $salt = isset($_POST['salt']) ? trim((string)$_POST['salt']) : '';
 $token = isset($_POST['token']) ? trim((string)$_POST['token']) : '';
 $hint = isset($_POST['hint']) ? (string)$_POST['hint'] : '';
 $kdf = isset($_POST['kdf']) ? trim((string)$_POST['kdf']) : 'PBKDF2-SHA256';
-$iterations = isset($_POST['iterations']) ? (int)$_POST['iterations'] : (int)$PBKDF2_ITERATIONS;
+$iterations = isset($_POST['iterations']) ? (int)$_POST['iterations'] : 0; // must post iterations
 $expire_mins = isset($_POST['expires_mins']) ? (int)$_POST['expires_mins'] : 1440*(int)$DEFAULT_EXPIRE_DAYS;
 $multi_view = isset($_POST['multi_view']) && in_array((string)$_POST['multi_view'], ['1', 'true', 'yes', 'on'], true) ? 1 : 0;
+
+if ($iterations < 600000) talk_json(['ok' => false, 'error' => 'Invalid iteration counts.'], 400);
 
 if ($salt === '' || strlen($salt) > 128 || !preg_match('/^[A-Za-z0-9_\-]+$/', $salt)) {
     talk_json(['ok' => false, 'error' => 'Invalid salt.'], 400);
@@ -24,9 +26,7 @@ if ($token === '' || strlen($token) > 256 || !preg_match('/^[A-Za-z0-9_\-]+$/', 
 if ($kdf !== 'PBKDF2-SHA256') {
     talk_json(['ok' => false, 'error' => 'Unsupported KDF.'], 400);
 }
-if ($iterations < 100000 || $iterations > 2000000) {
-    talk_json(['ok' => false, 'error' => 'Invalid PBKDF2 iterations.'], 400);
-}
+
 if ($expire_mins < 1) {
     $expire_mins = 1;
 }

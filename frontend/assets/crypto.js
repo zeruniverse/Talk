@@ -18,6 +18,10 @@
     return bytes;
   }
 
+  function randomInt(max) {
+    return crypto.randomInt(max);
+  }
+
   function base64UrlEncode(bytes) {
     let binary = '';
     for (let i = 0; i < bytes.length; i++) {
@@ -200,6 +204,7 @@
 
   window.TalkCrypto = {
     randomBytes,
+    randomInt,
     base64UrlEncode,
     base64UrlDecode,
     deriveKeys,
